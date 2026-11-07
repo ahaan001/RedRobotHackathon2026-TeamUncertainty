@@ -19,7 +19,7 @@ def base():
     """Trapezoid base: V opening at the front (+Y), rear tongue bolts under the baseplate."""
     w_front = P.PLOW_W
     apex_half = 30.0
-    pts = [(-w_front / 2, P.PLOW_DEPTH), (w_front / 2, P.PLOW_DEPTH), (apex_half, 0), (apex_half, -30), (-apex_half, -30), (-apex_half, 0)]
+    pts = [(-w_front / 2, P.PLOW_DEPTH), (w_front / 2, P.PLOW_DEPTH), (apex_half, 0), (46.0, 0), (46.0, -24), (-46.0, -24), (-46.0, 0), (-apex_half, 0)]
     b = cq.Workplane("XY").polyline(pts).close().extrude(T)
     # wall slots along each V edge, inset 6 mm from the edge
     for sx in (-1, 1):
@@ -36,7 +36,8 @@ def base():
             slot = (cq.Workplane("XY").box(16 + 2 * P.KERF, SLOT_W, T * 3)
                     .rotate((0, 0, 0), (0, 0, 1), ang).translate((cx, cy, T / 2)))
             b = b.cut(slot)
-    b = b.faces(">Z").workplane().pushPoints([(-P.BASEPLATE_FRONT_HOLE_SPACING / 2, -15), (P.BASEPLATE_FRONT_HOLE_SPACING / 2, -15)]).hole(P.M3_CLEAR)
+    hx, hy = P.BASEPLATE_FRONT_HOLES_OUTER[1]
+    b = b.faces(">Z").workplane().pushPoints([(-hy, -hx), (hy, -hx)]).hole(P.M3_CLEAR)
     return b
 
 

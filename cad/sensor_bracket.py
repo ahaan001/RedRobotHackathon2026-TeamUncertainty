@@ -9,7 +9,9 @@ import cadquery as cq
 import params as P
 from common import export_stl, export_step, print_mass_g, bbox_str
 
-FLANGE_W, FLANGE_D, FLANGE_T = 40.0, 22.0, 4.0
+FLANGE_W, FLANGE_D, FLANGE_T = 56.0, 20.0, 4.0   # spans the two inner front holes at y = +-21.1
+HOLE_Y = P.BASEPLATE_FRONT_HOLES_INNER[1][1]          # 21.1
+HOLE_X = P.BASEPLATE_FRONT_HOLES_INNER[1][0]          # 12.6 behind the front edge
 WEB_T = 4.0
 SHELF_T = 3.0
 SHELF_W = P.QTR_BOARD_L + 6.0
@@ -25,12 +27,14 @@ if web_h < 4:
 
 
 def build():
-    # Top flange under the baseplate, two M3 holes for bolts through the plywood
+    # Top flange under the baseplate: two tabs at y = +-21.1 reaching the existing holes
+    # 12.6 mm behind the front edge, with a cutout between them for the caster housing.
     flange = (cq.Workplane("XY").box(FLANGE_W, FLANGE_D, FLANGE_T, centered=(True, False, False))
               .translate((0, -FLANGE_D, flange_bottom_z)))
+    notch = cq.Workplane("XY").box(28.0, FLANGE_D - 6.0, FLANGE_T * 3).translate((0, -FLANGE_D + (FLANGE_D - 6.0) / 2 - 0.01, flange_bottom_z + FLANGE_T / 2))
+    flange = flange.cut(notch)
     flange = (flange.faces(">Z").workplane()
-              .pushPoints([(-P.BASEPLATE_FRONT_HOLE_SPACING / 2, -FLANGE_D / 2),
-                           (P.BASEPLATE_FRONT_HOLE_SPACING / 2, -FLANGE_D / 2)])
+              .pushPoints([(-HOLE_Y, -HOLE_X), (HOLE_Y, -HOLE_X)])
               .hole(P.M3_CLEAR))
 
     # Vertical web on the front face of the baseplate

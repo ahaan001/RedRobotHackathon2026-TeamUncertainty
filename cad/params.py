@@ -43,14 +43,29 @@ SERVO_HORN_HOLE_D= 2.2     # horn screws
 SERVO_STALL_KGCM = 3.1     # HS-311 at 5 V, interpolated from the datasheet
 
 # ---------------------------------------------------------------------------
-# Kit chassis. PLACEHOLDER: measure the plates
+# Kit chassis. MEASURED from mainV2.step (organizers' CAD) and the team's ruler (2026-11-07 15:46).
+# Chassis frame in the STEP: x = 0 at the front edge (caster end), x = 171.5 at the rear (motors),
+# y lateral +-76.2, z = 0 at the baseplate underside. Floor is 19 mm below z = 0 (top plate top
+# measured 63.5 mm above the floor; it sits at z = 44.5 in the STEP).
 # ---------------------------------------------------------------------------
 PLY_T                 = 3.2    # 1/8 in plywood, Roboclub stock. RULE (recommended)
-KIT_PLATE_T           = 3.2    # kit wood thickness; measure
-TOP_PLATE_H           = 75.0   # top surface of the kit top plate above the floor
-TOP_PLATE_W           = 150.0  # width (lateral) of the kit top plate
-BASEPLATE_UNDER_H     = 18.0   # underside of baseplate above the floor
-BASEPLATE_FRONT_HOLE_SPACING = 20.0  # two holes we drill at the front edge for the sensor bracket
+KIT_PLATE_T           = 3.2    # STEP
+TOP_PLATE_H           = 63.5   # top surface of the kit top plate above the floor. MEASURED
+TOP_PLATE_W           = 152.4  # 6 in. STEP + ruler
+TOP_PLATE_L           = 181.6  # STEP: x -10.2 .. 171.4 (10 mm front overhang with two ears)
+BASEPLATE_L           = 171.5  # 6.75 in. STEP + ruler
+BASEPLATE_UNDER_H     = 19.5   # underside of baseplate above the floor. MEASURED ~0.8 in / STEP 19.0
+DRIVE_AXLE_X          = 120.6  # chassis x of the wheel axle (STEP wheel center)
+CASTER_X              = 17.0   # chassis x of the ball caster (two small holes at x 9.5 and 24.3)
+# Top-plate M3 (3.4 mm) holes used for the mast base, chassis (x, y):
+MAST_HOLES_REAR  = [(113.3, -42.9), (113.3, 42.9), (128.0, -42.9), (128.0, 42.9), (155.6, -42.9), (155.6, 42.9)]
+MAST_HOLES_FRONT = [(42.9, -63.5), (42.9, 63.5), (71.4, -63.5), (71.4, 63.5), (55.2, -36.1), (55.2, 36.1), (37.0, 0.0)]
+MAST_CENTER_REAR_X  = 120.6    # base plate center when mounted at the rear (over the axle)
+MAST_CENTER_FRONT_X = 57.0     # base plate center when mounted at the front
+MAST_POSITION       = "rear"   # "rear" (PCB moved to the front half) or "front"
+# Baseplate M3 holes near the front edge, chassis (x, y): used by the sensor bracket and plow
+BASEPLATE_FRONT_HOLES_INNER = [(12.6, -21.1), (12.6, 21.1)]
+BASEPLATE_FRONT_HOLES_OUTER = [(12.6, -36.0), (12.6, 36.0)]
 
 # ---------------------------------------------------------------------------
 # Line sensor (Pololu QTR-8RC). Board 74.9 x 12.7 x 1.6 from the product page
@@ -98,9 +113,7 @@ GRIPPER_EAR_PIVOT_Z     = 10.0   # ... and above the carrier top
 MAST_INNER_GAP    = 46.0   # between side plates; servo body (36.5 + tabs) fits inside
 MAST_PLATE_W      = 60.0
 MAST_BASE_L       = 110.0  # base plate length (fore-aft)
-MAST_BASE_W       = MAST_INNER_GAP + 2 * PLY_T + 2 * 20.0
-MAST_BASE_BOLT_SPACING_X = 80.0
-MAST_BASE_BOLT_SPACING_Y = 60.0
+MAST_BASE_W       = 140.0  # wide enough for the front hole pattern at +-63.5
 TAB_LEN           = 12.0
 KERF              = 0.1    # laser kerf compensation per side for slots
 

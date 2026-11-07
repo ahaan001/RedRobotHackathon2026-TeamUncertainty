@@ -76,9 +76,15 @@ def base_plate():
             xx = x - PLATE_W / 2
             s = cq.Workplane("XY").box(TAB_W + 2 * P.KERF, SLOT_W, T * 3).translate((xx, y, T / 2))
             plate = plate.cut(s)
-    # four bolt slots (20 mm long) to the kit top plate
-    pts = [(sx * P.MAST_BASE_BOLT_SPACING_X / 2, sy * P.MAST_BASE_BOLT_SPACING_Y / 2) for sx in (-1, 1) for sy in (-1, 1)]
-    plate = plate.faces(">Z").workplane().pushPoints(pts).slot2D(20.0, P.M3_CLEAR, angle=0).cutThruAll()
+    # bolt holes matching the kit top plate for both mounting positions. Base frame x = arm
+    # direction = chassis -x, so a chassis hole at (cx, cy) lands at (center_x - cx, cy).
+    pts = []
+    for cx, cy in P.MAST_HOLES_REAR:
+        pts.append((P.MAST_CENTER_REAR_X - cx, cy))
+    for cx, cy in P.MAST_HOLES_FRONT:
+        pts.append((P.MAST_CENTER_FRONT_X - cx, cy))
+    pts = [(x, y) for (x, y) in pts if abs(x) < L / 2 - 4 and abs(y) < W / 2 - 4]
+    plate = plate.faces(">Z").workplane().pushPoints(pts).hole(P.M3_CLEAR)
     return plate
 
 

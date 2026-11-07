@@ -89,9 +89,16 @@ def build_world(phi_deg, L, pivot_h, stack_n, pipe_len, flange_od, body_od):
     for n in range(stack_n):
         sp = (cq.Workplane("XY").circle(body_od / 2).extrude(pipe_len)).translate((cx, 0, n * pipe_len))
         parts.append((f"stack{n}", sp))
-    # kit chassis stand-in: 150 x 200 x 3 top plate under the base, wheels
-    chassis = cq.Workplane("XY").box(200, P.TOP_PLATE_W, P.KIT_PLATE_T, centered=(True, True, False)).translate((-40, 0, P.TOP_PLATE_H - P.KIT_PLATE_T))
-    parts.append(("chassis", chassis))
+    # kit chassis stand-in from the STEP: world x = mast_center_x - chassis_x
+    mcx = P.MAST_CENTER_REAR_X if P.MAST_POSITION == "rear" else P.MAST_CENTER_FRONT_X
+    top = cq.Workplane("XY").box(P.TOP_PLATE_L, P.TOP_PLATE_W, P.KIT_PLATE_T, centered=(True, True, False)).translate((mcx - (171.4 - 10.2) / 2, 0, P.TOP_PLATE_H - P.KIT_PLATE_T))
+    basep = cq.Workplane("XY").box(P.BASEPLATE_L, P.TOP_PLATE_W, P.KIT_PLATE_T, centered=(True, True, False)).translate((mcx - P.BASEPLATE_L / 2, 0, P.BASEPLATE_UNDER_H))
+    parts.append(("chassis_top", top)); parts.append(("chassis_base", basep))
+    for sy in (-1, 1):
+        wheel = cq.Workplane("XZ").circle(32.8).extrude(26).translate((mcx - P.DRIVE_AXLE_X, sy * 82 + 13, 32.8))
+        parts.append(("chassis_wheel", wheel))
+    caster = cq.Workplane("XY").sphere(9.5).translate((mcx - P.CASTER_X, 0, 9.5))
+    parts.append(("chassis_caster", caster))
     floor = cq.Workplane("XY").box(500, 300, 1, centered=(True, True, False)).translate((100, 0, -1))
     parts.append(("floor", floor))
     return parts, (cx, cz)
