@@ -83,10 +83,11 @@ QTR_COMPONENT_H   = 3.0    # height of sensor packages below the board
 # ---------------------------------------------------------------------------
 CLEAR_ABOVE_STACK = 10.0
 # Jaw contact (flange rim) heights the arm must reach:
-H_FLOOR_PICK   = PIPE_FLANGE_OD / 2                       # lying pipe, near flange center
-H_TOP_PICK     = PIPE_LENGTH                              # upright pipe, top flange
-def h_place(n):  # jaw height to place onto a stack of n pipes
-    return n * PIPE_LENGTH + CLEAR_ABOVE_STACK + PIPE_LENGTH
+HOOK_BELOW_TOP = PIPE_FLANGE_T                            # hooks sit under the top flange
+H_FLOOR_PICK   = PIPE_FLANGE_OD / 2                       # lying pipe: hooks on the body at axis height
+H_TOP_PICK     = PIPE_LENGTH - HOOK_BELOW_TOP             # upright pipe on the floor: under its top flange
+def h_place(n):  # hook height to place onto a stack of n pipes, pipe bottom CLEAR_ABOVE_STACK above it
+    return n * PIPE_LENGTH + CLEAR_ABOVE_STACK + (PIPE_LENGTH - HOOK_BELOW_TOP)
 TARGET_STACK   = 3                                        # pipes placed by the arm (L1..L3 presets)
 
 # The jaw contact (dimple) line sits GRIPPER_OFFSET beyond the arm-tip pivot, in the finger

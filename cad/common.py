@@ -172,9 +172,9 @@ def arm_angle_for_height(h, L=P.ARM_LENGTH, pivot_h=P.PIVOT_H):
 
 
 def reach_table(L=P.ARM_LENGTH, pivot_h=P.PIVOT_H, pipe_len=P.PIPE_LENGTH, flange_od=P.PIPE_FLANGE_OD):
-    targets = [("floor pick", flange_od / 2), ("top pick", pipe_len)]
+    targets = [("floor pick", flange_od / 2), ("top pick", pipe_len - P.HOOK_BELOW_TOP)]
     for n in (1, 2, 3):
-        targets.append((f"place on {n}", n * pipe_len + P.CLEAR_ABOVE_STACK + pipe_len))
+        targets.append((f"place on {n}", n * pipe_len + P.CLEAR_ABOVE_STACK + (pipe_len - P.HOOK_BELOW_TOP)))
     rows = []
     for name, h in targets:
         phi = arm_angle_for_height(h, L, pivot_h)
