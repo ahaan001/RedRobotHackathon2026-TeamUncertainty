@@ -35,39 +35,47 @@ CARRIER_X = EAR_X                  # carrier half-width = ear outer face
 
 
 def jaw(driven: bool):
-    """Jaw with gear at origin, finger toward +Y on the +X side. Mirror for the other jaw."""
+    """Hook jaw: gear at origin, finger toward +Y on the +X side. Mirror for the other jaw.
+
+    Closed geometry (both jaws at CLAMP): the hook faces are JAW_GAP_CLOSED apart; the wide
+    part of the finger, between the hook and the gears, clears the flange by HOOK_CLEAR per
+    side so the flange can sit above the hooks. The flange underside rests on the hook's top
+    face (the face toward the carrier) when the pipe hangs.
+    """
     gear = spur_gear(P.GEAR_MODULE, P.GEAR_TEETH, P.GEAR_T, bore_d=0, backlash=P.GEAR_BACKLASH)
 
-    # finger: bar from the gear out to the pad, inner face at x = INNER_X_CLOSED - S/2 relative to gear center
-    inner_x = INNER_X_CLOSED - S / 2            # e.g. 15 - 18 = -3 (finger inner face sits 3 mm inboard of the pivot)
-    finger = (cq.Workplane("XY")
-              .center(inner_x + P.FINGER_T / 2, FINGER_END_Y / 2)
-              .rect(P.FINGER_T, FINGER_END_Y).extrude(P.FINGER_W))
-    # taper the root into the gear with a web so the finger does not start as a thin bar on a disk edge
-    web = (cq.Workplane("XY")
-           .polyline([(inner_x, 0), (inner_x + P.FINGER_T, 0), (inner_x + P.FINGER_T, 16.0), (inner_x, 16.0)])
-           .close().extrude(P.FINGER_W))
-    body = gear.union(finger).union(web)
+    hook_in = INNER_X_CLOSED - S / 2                 # hook face x, relative to the gear center
+    wide_in = (P.PIPE_FLANGE_OD / 2 + P.HOOK_CLEAR) - S / 2   # wide-section inner face
+    outer = wide_in + P.FINGER_T                     # outer face
+    y_hook0 = PAD_Y - P.PAD_SIZE / 2                 # hook top face (flange rests here)
+    y_end = FINGER_END_Y
+    y_wide0 = 34.0                                   # where the wide section begins (after the crank)
+    # finger outline (XY), extruded FINGER_W along Z
+    pts = [(-3.0, 0.0), (5.0, 0.0), (5.0, 12.0),
+           (outer, y_wide0 - 2.0), (outer, y_end),
+           (hook_in, y_end), (hook_in, y_hook0),
+           (wide_in, y_hook0), (wide_in, y_wide0),
+           (-3.0, 16.0)]
+    finger = cq.Workplane("XY").polyline(pts).close().extrude(P.FINGER_W)
+    body = gear.union(finger)
 
-    # pad pocket on the inner face
+    # pad pocket on the hook face
     pocket = (cq.Workplane("XY")
-              .center(inner_x + P.PAD_DEPTH / 2, PAD_Y)
-              .rect(P.PAD_DEPTH, P.PAD_SIZE).extrude(P.PAD_SIZE)
-              .translate((0, 0, (P.FINGER_W - P.PAD_SIZE) / 2)))
+              .center(hook_in + P.PAD_DEPTH / 2, (y_hook0 + y_end) / 2)
+              .rect(P.PAD_DEPTH, y_end - y_hook0 - 2.0).extrude(P.FINGER_W))
     body = body.cut(pocket)
-
-    # conical dimple into the pocket floor, axis along X
-    cone = cq.Solid.makeCone(P.DIMPLE_D / 2, 0.8, P.DIMPLE_DEPTH,
-                             pnt=cq.Vector(inner_x + P.PAD_DEPTH, PAD_Y, P.FINGER_W / 2),
-                             dir=cq.Vector(1, 0, 0))
-    body = body.cut(cq.Workplane("XY").add(cone))
+    # chamfer the hook's leading edge so it slides under the flange
+    try:
+        body = body.edges("|Z").edges(cq.selectors.NearestToPointSelector((hook_in, y_end, P.FINGER_W / 2))).chamfer(1.5)
+    except Exception:
+        pass
 
     if driven:
-        # horn recess on the bottom, 4 screw holes on the horn PCD, center clearance for the horn screw
-        body = body.faces("<Z").workplane().circle(10.75).cutBlind(-2.5)
-        pcd = [(P.SERVO_HORN_PCD / 2 * math.cos(math.radians(a)), P.SERVO_HORN_PCD / 2 * math.sin(math.radians(a)))
-               for a in (45, 135, 225, 315)]
-        body = body.faces(">Z").workplane().pushPoints(pcd).hole(P.SERVO_HORN_HOLE_D)
+        body = body.faces("<Z").workplane().circle(11.0).cutBlind(-2.5)      # round horn recess
+        for pcd in (14.0, 20.0):
+            pts4 = [(pcd / 2 * math.cos(math.radians(a)), pcd / 2 * math.sin(math.radians(a)))
+                    for a in ((0, 90, 180, 270) if pcd == 14.0 else (45, 135, 225, 315))]
+            body = body.faces(">Z").workplane().pushPoints(pts4).hole(P.SERVO_HORN_HOLE_D)
         body = body.faces(">Z").workplane().hole(P.M3_CLEAR)
     else:
         body = body.faces(">Z").workplane().hole(P.M3_CLEAR + 0.1)
@@ -91,7 +99,7 @@ def carrier():
     tabs = [(S / 2 + dx, cy + dy)
             for dx in (-P.SERVO_TAB_HOLE_Y / 2, P.SERVO_TAB_HOLE_Y / 2)
             for dy in (-P.SERVO_TAB_HOLE_X / 2, P.SERVO_TAB_HOLE_X / 2)]
-    plate = plate.faces(">Z").workplane().pushPoints(tabs).hole(P.SERVO_TAB_HOLE_D)
+    plate = plate.faces(">Z").workplane().pushPoints(tabs).slot2D(P.TAB_SLOT_LEN, P.SERVO_TAB_HOLE_D, angle=90).cutThruAll()
     # idler pin hole with a nut trap underneath
     plate = plate.faces(">Z").workplane().center(-S / 2, 0).hole(P.M3_CLEAR)
     trap = (cq.Workplane("XY").center(-S / 2, 0)
@@ -123,14 +131,15 @@ def carrier():
 
 
 def open_gap_check():
-    """Report the jaw gap over rotation so presets can be sanity-checked before printing."""
+    """Hook-face gap and wide-section gap vs. opening angle, for preset sanity checks."""
     out = []
-    for deg in range(0, 21, 5):
+    wide_in = (P.PIPE_FLANGE_OD / 2 + P.HOOK_CLEAR) - S / 2
+    for deg in range(0, 16, 3):
         a = math.radians(deg)
-        # pad center at closed: x = INNER_X_CLOSED + PAD_DEPTH (pad surface), y = PAD_Y about pivot (S/2, 0)
         rx, ry = (INNER_X_CLOSED - S / 2), PAD_Y
-        x = S / 2 + rx * math.cos(a) + ry * math.sin(a)   # rotate outward (clockwise for +X jaw)
-        out.append((deg, round(2 * x, 1)))
+        xh = S / 2 + rx * math.cos(a) + ry * math.sin(a)
+        xw = S / 2 + wide_in * math.cos(a) + 40.0 * math.sin(a)
+        out.append((deg, round(2 * xh, 1), round(2 * xw, 1)))
     return out
 
 
@@ -144,5 +153,5 @@ if __name__ == "__main__":
         export_step(shape, name)
         print(f"{name}: {bbox_str(shape)}, ~{print_mass_g(shape):.0f} g PLA")
     print(f"pivot spacing {S} mm, gear addendum radius {GEAR_R_ADD:.1f}, pad gap closed {P.JAW_GAP_CLOSED} mm")
-    print("jaw gap vs. opening angle (deg, mm):", open_gap_check())
-    print(f"needs: open >= {P.JAW_GAP_OPEN_MIN} mm (flange {P.PIPE_FLANGE_OD} + 12), RIM = {P.PIPE_FLANGE_OD - 2:.0f} mm, CLAMP = {P.PIPE_BODY_OD - 2:.0f} mm")
+    print("(deg, hook gap, wide gap):", open_gap_check())
+    print(f"needs: OPEN hook gap >= {P.JAW_GAP_OPEN_MIN:.1f}, RIM = {P.JAW_GAP_RIM:.1f} (flange {P.PIPE_FLANGE_OD} must not pass, body {P.PIPE_BODY_OD} must), CLAMP = {P.JAW_GAP_CLOSED:.1f}")

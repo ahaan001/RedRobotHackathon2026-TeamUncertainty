@@ -28,9 +28,9 @@ def arm_plate():
     wp = plate.faces(">Z").workplane()
     # pivot: hub hole + horn screw holes
     plate = wp.center(0, 0).hole(P.SERVO_HORN_HUB_D)
-    pcd = [(P.SERVO_HORN_PCD / 2 * math.cos(math.radians(a)), P.SERVO_HORN_PCD / 2 * math.sin(math.radians(a)))
-           for a in (0, 90, 180, 270)]
-    plate = plate.faces(">Z").workplane().pushPoints(pcd).hole(P.SERVO_HORN_HOLE_D)
+    for pcd, angs in ((14.0, (0, 90, 180, 270)), (20.0, (45, 135, 225, 315))):
+        pts = [(pcd / 2 * math.cos(math.radians(a)), pcd / 2 * math.sin(math.radians(a))) for a in angs]
+        plate = plate.faces(">Z").workplane().pushPoints(pts).hole(P.SERVO_HORN_HOLE_D)
 
     # gripper mount at both lengths: pivot hole + angle hole in the anti-finger direction
     ang = math.radians(180.0 + P.GRIPPER_MOUNT_ANGLE_DEG)   # direction from gripper pivot toward the ear's angle hole
@@ -75,8 +75,9 @@ if __name__ == "__main__":
     from common import reach_table, gripper_offset
     along, side = gripper_offset()
     print(f"  gripper offset from tip pivot to dimple line: {along:.0f} mm along fingers, {side:.0f} mm sideways")
-    for label, L, H, plen, fod in (("manual 76 mm pipe", P.ARM_LENGTH_ALT, 165.0, 76.2, 85.0),
-                                   ("team 127 mm pipe", P.ARM_LENGTH, P.PIVOT_H, P.PIPE_LENGTH, P.PIPE_FLANGE_OD)):
+    for label, L, H, plen, fod in ((f"measured pipe, primary holes", P.ARM_LENGTH, P.PIVOT_H, P.PIPE_LENGTH, P.PIPE_FLANGE_OD),
+                                   (f"measured pipe, alt holes", P.ARM_LENGTH_ALT, P.PIVOT_H, P.PIPE_LENGTH, P.PIPE_FLANGE_OD),
+                                   ("if pipe is 127 mm tall", P.ARM_LENGTH_ALT, 215.0, 127.0, P.PIPE_FLANGE_OD)):
         print(f"  {label}: L={L:.0f} pivot={H:.0f}")
         for name, h, phi, x in reach_table(L, H, plen, fod):
             if phi is None:

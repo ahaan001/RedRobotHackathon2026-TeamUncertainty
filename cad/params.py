@@ -6,39 +6,41 @@ STATUS LEGEND
   PLACEHOLDER  team estimate or Claude's assumption; replace before fabrication
   RULE         from the game manual or fabrication policy
 
-The two sources disagree on the pipe: the game manual says a 3 in x 3 in cylinder
-with flanged ends; the team's first look says flange OD ~1.5 in, length ~5 in,
-mass ~200 g. The team's numbers are used here because they come from the physical
-pipe, but every pipe-dependent dimension regenerates from this file in minutes.
+Pipe measured 2026-11-07 15:10: flange OD 3 in, body OD 2.75 in, flange 0.5 in thick,
+75 g. Standing height not yet measured; 3 in assumed per the manual. The flange is only
+3.2 mm proud of the body, so the jaws hold the pipe by hooking under the top flange
+(a geometric lip), not by friction dimples.
 """
 
 # ---------------------------------------------------------------------------
-# Pipe (game piece)                                                PLACEHOLDER
+# Pipe (game piece)                                     MEASURED except length
 # ---------------------------------------------------------------------------
-PIPE_LENGTH      = 127.0   # 5 in, team estimate. Manual: 76.2 (3 in). DRIVES ARM REACH.
-PIPE_FLANGE_OD   = 38.0    # 1.5 in, team estimate. Manual implies ~80+.
-PIPE_BODY_OD     = 32.0    # assumption: must be smaller than flange OD; measure
-PIPE_FLANGE_T    = 6.0     # assumption; measure
-PIPE_MASS_G      = 200.0   # team estimate; design case 300 g
+PIPE_LENGTH      = 76.2    # 3 in per the manual. NOT YET MEASURED: confirm standing height. DRIVES ARM REACH.
+PIPE_FLANGE_OD   = 76.2    # 3 in        MEASURED 2026-11-07 15:10
+PIPE_BODY_OD     = 69.85   # 2.75 in     MEASURED
+PIPE_FLANGE_T    = 12.7    # 0.5 in      MEASURED
+PIPE_MASS_G      = 75.0    # MEASURED
 
 # ---------------------------------------------------------------------------
-# Servos (40 g class). PLACEHOLDER: read the label, measure the body
+# Servos: Hitec HS-311 (label read 2026-11-07). Datasheet: 40 x 20 x 36.5 mm, 43 g,
+# 3.0 kg.cm at 4.8 V / 3.5-3.7 at 6 V, 180 deg over 600-2400 us, 24T C1 spline, 800 mA stall.
+# Tab hole spacing and shaft offset still PLACEHOLDER (standard-size values): holes are slotted.
 # ---------------------------------------------------------------------------
-SERVO_BODY_L     = 40.7    # along the tab direction
-SERVO_BODY_W     = 19.7
+SERVO_BODY_L     = 40.0    # along the tab direction (HS-311 datasheet)
+SERVO_BODY_W     = 20.0
 SERVO_BODY_H     = 36.5    # bottom of body to underside of mounting tabs
 SERVO_TAB_L      = 54.5    # overall length across both tabs
 SERVO_TAB_T      = 2.5     # tab thickness
 SERVO_TAB_HOLE_X = 49.5    # hole spacing along length
 SERVO_TAB_HOLE_Y = 10.0    # hole spacing across width
-SERVO_TAB_HOLE_D = 3.4     # M3 clearance (tabs are usually ~4.2; M3 with washer is fine)
-SERVO_SHAFT_OFF  = 10.3    # shaft center offset from body center, along length
+SERVO_TAB_HOLE_D = 3.4     # M3 clearance; cut as 3.4 x 6 slots to absorb the unknown tab spacing
+SERVO_SHAFT_OFF  = 10.0    # shaft center offset from body center, along length. PLACEHOLDER
 SERVO_BOSS_D     = 13.5    # raised boss around the output shaft
 SERVO_BOSS_H     = 3.5     # boss height above the tab plane
 SERVO_HORN_HUB_D = 8.0     # horn hub diameter that passes through a plate
 SERVO_HORN_PCD   = 16.0    # bolt circle of the 4 horn screw holes (round / 4-arm horn)
 SERVO_HORN_HOLE_D= 2.2     # horn screws
-SERVO_STALL_KGCM = 5.0     # at 5 V. PLACEHOLDER until the Gate 1 bench test
+SERVO_STALL_KGCM = 3.1     # HS-311 at 5 V, interpolated from the datasheet
 
 # ---------------------------------------------------------------------------
 # Kit chassis. PLACEHOLDER: measure the plates
@@ -78,10 +80,10 @@ TARGET_STACK   = 3                                        # pipes placed by the 
 # contact_height(phi) = PIVOT_H + L*sin(phi) + G*sin(phi + alpha); see common.reach_table().
 #   76 mm pipe (manual, flange ~85): L 180, pivot 165 -> floor -11 deg .. place on 3 +52 deg (4-stack)
 #  127 mm pipe (team estimate):      L 230, pivot 215 -> floor -25 deg .. place on 2 +49 deg (3-stack)
-ARM_LENGTH        = 230.0  # pivot to gripper-tip pivot hole, used with the 127 mm pipe
-ARM_LENGTH_ALT    = 180.0  # second hole set, used with the 76 mm pipe
+ARM_LENGTH        = 180.0  # pivot to gripper-tip pivot hole, for the 76 mm pipe
+ARM_LENGTH_ALT    = 230.0  # second hole set, only if the pipe turns out ~127 mm
 PIVOT_H_OPTIONS   = [165.0, 215.0, 265.0]   # pivot heights cut into the mast; pick with the real pipe
-PIVOT_H           = 215.0                   # expected with a 127 mm pipe
+PIVOT_H           = 165.0                   # for the 76 mm pipe
 ARM_PLATE_W       = 30.0
 ARM_REAR_EXT      = 45.0   # behind the pivot, for the counterbalance hook
 ARM_PLATE_GAP     = 58.4   # inside distance between arm plates = MAST_INNER_GAP + 2*PLY_T + 2*3 (horn/washer)
@@ -110,20 +112,21 @@ GEAR_TEETH        = 24     # pitch diameter 36 = pivot spacing
 GEAR_T            = 6.0
 GEAR_BACKLASH     = 0.3
 JAW_PIVOT_SPACING = GEAR_MODULE * GEAR_TEETH
-FINGER_L          = 55.0   # pivot to pad center
-FINGER_W          = 15.0   # along the pipe axis
-FINGER_T          = 8.0
-PAD_SIZE          = 15.0
-PAD_DEPTH         = 2.0    # inner-tube rubber or craft foam
-DIMPLE_D          = 8.0
-DIMPLE_DEPTH      = 3.0
-JAW_GAP_CLOSED    = PIPE_BODY_OD - 2.0    # pad faces when fully closed (clamp has squeeze)
-JAW_GAP_OPEN_MIN  = PIPE_FLANGE_OD + 12.0 # must straddle the flange with margin
+FINGER_L          = 55.0   # pivot to pad (hook) center
+FINGER_W          = 15.0   # finger height along the gear axis (world fore-aft)
+FINGER_T          = 8.0    # finger wall thickness
+PAD_SIZE          = 15.0   # hook depth along the finger
+PAD_DEPTH         = 2.0    # inner-tube rubber or craft foam, in the hook face
+HOOK_CLEAR        = 3.0    # wide part of the finger clears the flange by this per side
+JAW_GAP_CLOSED    = PIPE_BODY_OD - 2.0    # hook faces when fully closed (CLAMP, pads squeezed)
+JAW_GAP_RIM       = PIPE_BODY_OD + 2.0    # hooks under the flange, body free to swing (RIM)
+JAW_GAP_OPEN_MIN  = PIPE_FLANGE_OD + 10.0 # must straddle the flange with margin (OPEN)
 CARRIER_T         = 5.0
 M3_CLEAR          = 3.4
 M3_NUT_AF         = 5.6
 M3_NUT_T          = 2.6
 M2_CLEAR          = 2.4
+TAB_SLOT_LEN      = 6.0    # servo tab holes cut as slots this long
 
 # ---------------------------------------------------------------------------
 # Plow (Level 1 fallback)

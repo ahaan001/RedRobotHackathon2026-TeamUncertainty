@@ -54,7 +54,7 @@ def side_plate(left: bool):
             pts4 = [(MAST_PIVOT_X + dx, cy + dy)
                     for dx in (-P.SERVO_TAB_HOLE_Y / 2, P.SERVO_TAB_HOLE_Y / 2)
                     for dy in (-P.SERVO_TAB_HOLE_X / 2, P.SERVO_TAB_HOLE_X / 2)]
-            plate = plate.faces(">Z").workplane().pushPoints(pts4).hole(P.SERVO_TAB_HOLE_D)
+            plate = plate.faces(">Z").workplane().pushPoints(pts4).slot2D(P.TAB_SLOT_LEN, P.SERVO_TAB_HOLE_D, angle=90).cutThruAll()
         else:
             plate = plate.faces(">Z").workplane().center(MAST_PIVOT_X, py).hole(P.M3_CLEAR)
     # lightening holes between pivots
