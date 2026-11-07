@@ -1,89 +1,64 @@
+/**
+ * @brief Controller mapping only. No logic lives here; everything calls Drive::
+ *        or Mech::. These callbacks run on the BLE task and must not block.
+ *
+ * Redpad (RR_Controller)                      Bluefruit Connect (fallback)
+ *   Left joystick   arcade drive                D-pad      drive (stock behaviour)
+ *   Right joystick Y arm jog                    1          exit auton (stock)
+ *   D-pad UP/DOWN   arm preset up/down           2          jaw: open / next closed
+ *   D-pad LEFT      jaw open                     3          arm preset up
+ *   D-pad RIGHT     jaw next closed (RIM, CLAMP) 4          arm preset down
+ *   D-pad CENTER    precision drive toggle
+ *   A               start autonomous (only before it has run, while idle)
+ *   B               place macro (lower, open, lift)
+ *   X               exit autonomous (stock behaviour, keep)
+ *   Y               stow arm and stop drive
+ *
+ * Every handler except A and X ignores input unless the robot is in remote
+ * control, because the stock library delivers these callbacks during auton too.
+ */
 #include "RedRobot.h"
-
-bool useTankDrive = false;
+#include "Config.h"
+#include "Robot.h"
 
 namespace RR_Controller
 {
   void Joystick1(int8_t x, int8_t y)
   {
-    if (useTankDrive)
-      RedRobot::WriteDCMotor(2, y);
-    else
-    {
-      int leftMotor = y + x;
-      int rightMotor = y - x;
-
-      // Normalize to [-100, 100]
-      int maxMagnitude = max(abs(leftMotor), abs(rightMotor));
-
-      if (maxMagnitude > 100)
-      {
-        leftMotor = leftMotor * 75 / maxMagnitude;
-        rightMotor = rightMotor * 75 / maxMagnitude;
-      }
-      RedRobot::WriteDCMotor(2, leftMotor);
-      RedRobot::WriteDCMotor(3, rightMotor);
-    }
+    if (!RedRobot::IsRemoteControlled()) return;
+    Mech::noteCommand();
+    Drive::arcade(x, y);
   }
 
   void Joystick2(int8_t x, int8_t y)
   {
-    if (useTankDrive)
-      RedRobot::WriteDCMotor(3, y);
+    if (!RedRobot::IsRemoteControlled()) return;
+    Mech::noteCommand();
+    Mech::setArmJog(y);   // 0 when released stops the jog
   }
 
-  /* DPad_Pressed is called everytime a D-Pad button is pressed or released.
-   *
-   * Only activates after RedRobot::StartRemoteControl() is called.
-   * Button is one of {UP = 0, DOWN = 1, LEFT = 2, RIGHT = 3, CENTER = 4}
-   */
   void DPad_Pressed(button_t Button, bool buttonPressedDown)
   {
-    // values stay the same between calls to DPad_Pressed
-    static bool button_pressed[5] = {false, false, false, false, false};
+    if (!RedRobot::IsRemoteControlled()) return;
+    Mech::noteCommand();
+    if (!buttonPressedDown) return;        // act on press only
 
-    button_pressed[Button] = (buttonPressedDown == true);
-
-    // TODO: edit your speed output to the yellow motors below!
-    // stop = 0, slow = 50, fast = 100
-    // range [-100,100]
-
-    int left_speed = 0;
-    int right_speed = 0;
-
-    if (button_pressed[UP])
-    { // Forward
-      left_speed += 100;
-      right_speed += 100;
+    switch (Button) {
+      case UP:     Mech::armPresetUp();     break;
+      case DOWN:   Mech::armPresetDown();   break;
+      case LEFT:   Mech::jawOpen();         break;
+      case RIGHT:  Mech::jawNextClosed();   break;
+      case CENTER: Drive::togglePrecision(); break;
     }
-    if (button_pressed[DOWN])
-    { // Backward
-      left_speed -= 100;
-      right_speed -= 100;
-    }
-    if (button_pressed[LEFT])
-    { // Turn left_speed
-      left_speed -= 50;
-      right_speed += 50;
-    }
-    if (button_pressed[RIGHT])
-    { // Turn right_speed
-      left_speed += 50;
-      right_speed -= 50;
-    }
-
-    // Clamp and write speeds
-    RedRobot::WriteDCMotor(2, constrain(left_speed, -100, 100));
-    RedRobot::WriteDCMotor(3, constrain(right_speed, -100, 100));
   }
 
   void ButtonX_Pressed(bool buttonPressedDown)
   {
+    // Exit autonomous (stock behaviour). Safe mid-move: this runs on the BLE task.
     if (!RedRobot::IsRemoteControlled() && buttonPressedDown)
     {
+      Auton::abort();
       RedRobot::StartRemoteControl();
-
-      // start remote controlled with the DC motors off
       RedRobot::WriteDCMotor(2, 0);
       RedRobot::WriteDCMotor(3, 0);
     }
@@ -91,77 +66,54 @@ namespace RR_Controller
 
   void ButtonY_Pressed(bool buttonPressedDown)
   {
-    Serial.printf("Y pressed\n");
-    if (buttonPressedDown)
-      useTankDrive = !useTankDrive;
+    if (!RedRobot::IsRemoteControlled()) return;
+    Mech::noteCommand();
+    if (buttonPressedDown) Mech::stow();
   }
 
   void ButtonB_Pressed(bool buttonPressedDown)
   {
+    if (!RedRobot::IsRemoteControlled()) return;
+    Mech::noteCommand();
+    if (buttonPressedDown) Mech::startPlaceMacro();
   }
 
   void ButtonA_Pressed(bool buttonPressedDown)
   {
+    if (!buttonPressedDown) return;
+    // Start autonomous: only from idle teleop, only once per boot.
+    if (RedRobot::IsRemoteControlled() && !Auton::hasRun()) {
+      Drive::stop();
+      Auton::arm();
+      RedRobot::InitAuton();     // in_remote_control = false; loop() starts calling AutonomousLoop
+    }
   }
 }
 
 namespace Bluefruit
 {
-  /* DPad_Pressed is called everytime a D-Pad button is pressed or released.
-   *
-   * Only activates after RedRobot::StartRemoteControl() is called.
-   * Button is one of {UP = 0, DOWN = 1, LEFT = 2, RIGHT = 3}
-   */
   void DPad_Pressed(button_t Button, bool buttonPressedDown)
   {
-    if (!RedRobot::IsRemoteControlled())
-      return;
+    if (!RedRobot::IsRemoteControlled()) return;
+    Mech::noteCommand();
 
-    // values stay the same between calls to DPad_Pressed
     static bool button_pressed[4] = {false, false, false, false};
+    button_pressed[Button] = buttonPressedDown;
 
-    button_pressed[Button] = (buttonPressedDown == true);
-
-    // TODO: edit your speed output to the yellow motors below!
-    // stop = 0, slow = 50, fast = 100
-    // range [-100,100]
-
-    int left_speed = 0;
-    int right_speed = 0;
-
-    if (button_pressed[UP])
-    { // Forward
-      left_speed += 100;
-      right_speed += 100;
-    }
-    if (button_pressed[DOWN])
-    { // Backward
-      left_speed -= 100;
-      right_speed -= 100;
-    }
-    if (button_pressed[LEFT])
-    { // Turn left_speed
-      left_speed -= 50;
-      right_speed += 50;
-    }
-    if (button_pressed[RIGHT])
-    { // Turn right_speed
-      left_speed += 50;
-      right_speed -= 50;
-    }
-
-    // Clamp and write speeds
-    RedRobot::WriteDCMotor(2, constrain(left_speed, -100, 100));
-    RedRobot::WriteDCMotor(3, constrain(right_speed, -100, 100));
+    int x = 0, y = 0;
+    if (button_pressed[UP])    y += 100;
+    if (button_pressed[DOWN])  y -= 100;
+    if (button_pressed[LEFT])  x -= 50;
+    if (button_pressed[RIGHT]) x += 50;
+    Drive::arcade(x, y);
   }
 
   void Button1_Pressed(bool buttonPressedDown)
   {
     if (!RedRobot::IsRemoteControlled() && buttonPressedDown)
     {
+      Auton::abort();
       RedRobot::StartRemoteControl();
-
-      // start remote controlled with the DC motors off
       RedRobot::WriteDCMotor(2, 0);
       RedRobot::WriteDCMotor(3, 0);
     }
@@ -169,30 +121,22 @@ namespace Bluefruit
 
   void Button2_Pressed(bool buttonPressedDown)
   {
-    // Ex: move an arm when the button is pressed
-    if (buttonPressedDown)
-    {
-      RedRobot::SetServo(0, 180);
-      RedRobot::SetServo(1, 180);
-      RedRobot::SetServo(2, 180);
-      RedRobot::SetServo(3, 180);
-    }
-    else
-    {
-      RedRobot::SetServo(0, 0);
-      RedRobot::SetServo(1, 0);
-      RedRobot::SetServo(2, 0);
-      RedRobot::SetServo(3, 0);
-    }
+    if (!RedRobot::IsRemoteControlled() || !buttonPressedDown) return;
+    Mech::noteCommand();
+    if (Mech::jawPreset() == JAW_OPEN) Mech::jawNextClosed(); else Mech::jawOpen();
   }
 
   void Button3_Pressed(bool buttonPressedDown)
   {
+    if (!RedRobot::IsRemoteControlled() || !buttonPressedDown) return;
+    Mech::noteCommand();
+    Mech::armPresetUp();
   }
 
   void Button4_Pressed(bool buttonPressedDown)
   {
+    if (!RedRobot::IsRemoteControlled() || !buttonPressedDown) return;
+    Mech::noteCommand();
+    Mech::armPresetDown();
   }
 }
-
-
