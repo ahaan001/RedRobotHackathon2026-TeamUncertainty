@@ -1,96 +1,48 @@
 /**
- * @brief Red Robot 2026 main code!
- * 
- * Read the comments below to figure out how to get started!
+ * @brief Red Robot 2026, Team Uncertainty main sketch.
+ *
+ * Boot sequence: the organizers' library inits, then our mechanism task starts
+ * and commands the STOW pose. With BOOT_INTO_TELEOP the robot sits idle in
+ * remote-control mode until Redpad A is pressed, which starts the 20 s
+ * autonomous routine (Auton.cpp). X exits autonomous at any time.
+ *
+ * Put the arm in STOW by hand before switching on: servos are limp until the
+ * first command and then snap to it.
+ *
+ * Status: UNCOMPILED skeleton. SW1 compiles and flashes; see docs/SETUP.md.
  */
 
 // Libraries with driver code (don't remove these!)
 #include <Arduino.h>                // make sure this is first
 #include "RedRobot.h"
-
-// Declare some global variables
-bool started; // boolean (true or false) to keep track of if we should start
-int counter;  // integer to hold a count value
+#include "Config.h"
+#include "Robot.h"
 
 // This function runs ONCE, when the microcontroller boots up
 void setup() {
-    // Initialize all components on the robot before doing any work
   RedRobot::InitRedRobot();         // call this first
   RedRobot::InitDCMotors();
   RedRobot::InitServo();
   RedRobot::InitLineSensors();
-  RedRobot::InitAuton();            // call this to activate the AutonomousLoop
+  RedRobot::InitAuton();
 
-  // Initialize our variables
-  started = false;
-  counter = 0;
+  if (BOOT_INTO_TELEOP) {
+    RedRobot::StartRemoteControl(); // idle: nothing moves until A (auton) or the joystick
+  }
+
+  LineFollow::begin();
+  Mech::begin();                    // starts the 50 Hz servo task, commands STOW + CLAMP
+
+  Serial.print("[TU] Team Uncertainty firmware ");
+  Serial.println(FW_VERSION);
+  Serial.println(BOOT_INTO_TELEOP ? "[TU] idle in teleop; press A to start auton, X to exit auton"
+                                  : "[TU] autonomous starts now (organizer default)");
 }
 
-// This function runs over and over (in a loop) when you are in autonomous mode.
-// As an example, this code moves out of the starting box at start, and 
-// Look at RedRobot.h to see the robot interface: what functions you can call and how.
+// Runs over and over while the robot is in autonomous mode (not remote controlled).
 void AutonomousLoop() {
-
-    if (!started) { // e.g. get out of the starting box
-        started = true;
-
-        // move forward - set motors 2 and 3 to speed 30
-        RedRobot::WriteDCMotor(2, 30);
-        RedRobot::WriteDCMotor(3, 30);
-
-        // wait 1000 milliseconds = 1 second
-        delay(1000);
-
-        // turn right - set motor 2 to speed 30 and motor 3 to -30
-        RedRobot::WriteDCMotor(2, 30);
-        RedRobot::WriteDCMotor(3, -30);
-
-        delay(500); // half a second
-
-        // stop the motors
-        RedRobot::WriteDCMotor(2, 0);
-        RedRobot::WriteDCMotor(3, 0);
-    }
-    
-    // repeatedly move the servo and get in scoring position
-    // remember that the below code will run repeatedly since we are in
-    // the AutonomousLoop!
-
-    // set all servos to angle 0
-    RedRobot::SetServo(0, 0);
-    RedRobot::SetServo(1, 0);
-    RedRobot::SetServo(2, 0);
-    RedRobot::SetServo(3, 0);
-
-    // move forward at speed 50
-    RedRobot::WriteDCMotor(2, 50);
-    RedRobot::WriteDCMotor(3, 50);
-
-    delay(1000);
-
-    // stop the motors
-    RedRobot::WriteDCMotor(2, 0);
-    RedRobot::WriteDCMotor(3, 0);
-
-    // set the motors to different angles
-    RedRobot::SetServo(0, 90);
-    RedRobot::SetServo(1, 180);
-    RedRobot::SetServo(2, 90);
-    RedRobot::SetServo(3, 180);
-
-    delay(500);
-
-    // move backward
-    RedRobot::WriteDCMotor(2, -50);
-    RedRobot::WriteDCMotor(3, -50);
-
-    delay(1000);
-    
-    // Print to the serial console to debug!
-    Serial.print("[AUTO] Running ");
-    Serial.print(counter);
-    Serial.println();
-
-    // increment the counter
-    counter = counter + 1;
+  if (!BOOT_INTO_TELEOP && !Auton::isArmed() && !Auton::hasRun()) {
+    Auton::arm();                   // organizer default: start at boot
+  }
+  Auton::step();                    // non-blocking state machine
 }
