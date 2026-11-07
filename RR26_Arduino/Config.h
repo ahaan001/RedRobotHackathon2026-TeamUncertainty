@@ -10,7 +10,7 @@
 #pragma once
 #include <stdint.h>
 
-#define FW_VERSION "v1-skeleton (uncompiled)"
+#define FW_VERSION "v1-skeleton-hs311 (uncompiled)"
 
 // ---------------------------------------------------------------------------
 // Boot behaviour
@@ -43,52 +43,60 @@ constexpr uint32_t TELEOP_CMD_TIMEOUT_MS   = 1500;
 constexpr uint8_t SERVO_ARM = 0;   // shoulder, header "servo 0" (verify silkscreen)
 constexpr uint8_t SERVO_JAW = 1;   // gripper, header "servo 1"
 
-// Mechanical travel limits in microseconds. PLACEHOLDER: find with `s` command,
-// unloaded, before the arm plates are attached. The library allows 500..2500.
-constexpr int ARM_PULSE_MIN = 900;
-constexpr int ARM_PULSE_MAX = 2100;
-constexpr int JAW_PULSE_MIN = 900;
-constexpr int JAW_PULSE_MAX = 2100;
+// Servos are Hitec HS-311: 180 deg over 600..2400 us, 0.107 deg/us, clockwise with
+// increasing pulse, 3.0 kg.cm at 4.8 V, 800 mA stall. Limits stay inside the servo's range.
+constexpr int ARM_PULSE_MIN = 700;
+constexpr int ARM_PULSE_MAX = 2300;
+constexpr int JAW_PULSE_MIN = 700;
+constexpr int JAW_PULSE_MAX = 2300;
+constexpr int SERVO_US_PER_DEG_X100 = 935;   // 9.35 us per degree (HS-311 datasheet)
 
-// Arm presets, in microseconds. PLACEHOLDER: tune on the real pipe.
-// Order matters: UP/DOWN on the D-pad step through FLOOR..L4 (STOW is on Y).
+// ---- Arm presets are written in degrees above horizontal and converted to pulses ----
+// Bench procedure: fit the horn so the arm is horizontal near 1500 us, then find the exact
+// pulse where it is horizontal (`s 0 <us>` with a spirit level or by eye) -> ARM_HORIZONTAL_US.
+// If the arm goes DOWN when the pulse increases, set ARM_DIR = -1. PLACEHOLDER until done.
+constexpr int ARM_HORIZONTAL_US = 1500;
+constexpr int ARM_DIR = 1;
+constexpr int armUs(int deg) { return ARM_HORIZONTAL_US + ARM_DIR * deg * SERVO_US_PER_DEG_X100 / 100; }
+
+// Angles from cad/arm.py reach table for the measured pipe (76 mm tall, 76 mm flange),
+// arm holes at 180 mm, mast pivot at 165 mm. Re-run `python cad/arm.py` if the pipe differs.
 enum ArmPreset : uint8_t {
-  ARM_STOW = 0,  // folded inside the 12 in footprint
-  ARM_FLOOR,     // jaws at lying-pipe flange height
-  ARM_TOP,       // jaws at upright-pipe top flange height
-  ARM_CARRY,     // travel height, pipe clear of floor
+  ARM_STOW = 0,  // folded, inside the 12 in footprint
+  ARM_FLOOR,     // hooks at lying-pipe body height (38 mm)
+  ARM_TOP,       // hooks just under the top flange of an upright pipe on the floor
+  ARM_CARRY,     // travel height, pipe clear of the floor
   ARM_L1,        // place on 1 pipe
   ARM_L2,        // place on 2 pipes
   ARM_L3,        // place on 3 pipes
-  ARM_L4,        // place on 4 pipes
+  ARM_L4,        // place on 4 pipes (at the reach limit; verify before relying on it)
   ARM_PRESET_COUNT
 };
+constexpr int ARM_PRESET_DEG[ARM_PRESET_COUNT] = { 70, -12, -3, 5, 16, 33, 52, 75 };
 constexpr int ARM_PRESET_US[ARM_PRESET_COUNT] = {
-  2050,  // STOW
-  950,   // FLOOR
-  1050,  // TOP
-  1250,  // CARRY
-  1350,  // L1
-  1550,  // L2
-  1750,  // L3
-  1950   // L4
+  armUs(ARM_PRESET_DEG[0]), armUs(ARM_PRESET_DEG[1]), armUs(ARM_PRESET_DEG[2]), armUs(ARM_PRESET_DEG[3]),
+  armUs(ARM_PRESET_DEG[4]), armUs(ARM_PRESET_DEG[5]), armUs(ARM_PRESET_DEG[6]), armUs(ARM_PRESET_DEG[7])
 };
-constexpr int ARM_SET_DROP_US     = 60;   // lower by this to set a pipe down (about 10 mm)
+constexpr int ARM_SET_DROP_US     = 3 * SERVO_US_PER_DEG_X100 / 100;  // lower 3 deg (~12 mm) to set a pipe down
 constexpr int ARM_JOG_US_PER_S    = 250;  // right joystick full deflection jog rate
-constexpr int ARM_SLEW_US_PER_S   = 400;  // max arm speed, limits swing and current
+constexpr int ARM_SLEW_US_PER_S   = 350;  // ~37 deg/s, limits swing and current on the HS-311
+
+// ---- Jaw presets: the jaw gear is driven 1:1, so jaw angle = servo angle ----
+// From cad/gripper.py: CLAMP = hooks touching the pipe body (0 deg), RIM = +2.5 deg (72 mm gap:
+// body passes, flange does not), OPEN = +11 deg (>= 86 mm). Bench: close the jaws on the body
+// with `s 1 <us>` -> JAW_CLAMP_US. If a larger pulse CLOSES the jaws, set JAW_DIR = -1.
+constexpr int JAW_CLAMP_US = 1500;   // PLACEHOLDER
+constexpr int JAW_DIR = 1;
+constexpr int jawUs(int degOpen) { return JAW_CLAMP_US + JAW_DIR * degOpen * SERVO_US_PER_DEG_X100 / 100; }
 
 enum JawPreset : uint8_t {
-  JAW_OPEN = 0,  // wide enough to straddle the flange
-  JAW_RIM,       // flange OD minus 2 mm: pipe hangs and can swing
-  JAW_CLAMP,     // body/axial clamp for horizontal carry
+  JAW_OPEN = 0,  // straddles the flange
+  JAW_RIM,       // hooks under the flange, pipe hangs and swings
+  JAW_CLAMP,     // squeezes the body for horizontal carry
   JAW_PRESET_COUNT
 };
-constexpr int JAW_PRESET_US[JAW_PRESET_COUNT] = {
-  1000,  // OPEN
-  1500,  // RIM
-  1750   // CLAMP
-};
-constexpr int JAW_SLEW_US_PER_S = 1500;
+constexpr int JAW_PRESET_US[JAW_PRESET_COUNT] = { jawUs(11), jawUs(3), jawUs(0) };
+constexpr int JAW_SLEW_US_PER_S = 1200;
 
 // Mechanism task timing
 constexpr uint32_t MECH_TICK_MS         = 20;    // 50 Hz
