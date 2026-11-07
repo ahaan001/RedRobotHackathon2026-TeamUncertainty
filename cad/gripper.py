@@ -71,14 +71,14 @@ def jaw(driven: bool):
         pass
 
     if driven:
-        body = body.faces("<Z").workplane().circle(11.0).cutBlind(-2.5)      # round horn recess
+        body = body.faces("<Z").workplane(origin=(0, 0, 0)).circle(11.0).cutBlind(-2.5)      # round horn recess
         for pcd in (14.0, 20.0):
             pts4 = [(pcd / 2 * math.cos(math.radians(a)), pcd / 2 * math.sin(math.radians(a)))
                     for a in ((0, 90, 180, 270) if pcd == 14.0 else (45, 135, 225, 315))]
-            body = body.faces(">Z").workplane().pushPoints(pts4).hole(P.SERVO_HORN_HOLE_D)
-        body = body.faces(">Z").workplane().hole(P.M3_CLEAR)
+            body = body.faces(">Z").workplane(origin=(0, 0, 0)).pushPoints(pts4).hole(P.SERVO_HORN_HOLE_D)
+        body = body.faces(">Z").workplane(origin=(0, 0, 0)).hole(P.M3_CLEAR)
     else:
-        body = body.faces(">Z").workplane().hole(P.M3_CLEAR + 0.1)
+        body = body.faces(">Z").workplane(origin=(0, 0, 0)).hole(P.M3_CLEAR + 0.1)
     return body
 
 
@@ -94,14 +94,14 @@ def carrier():
     plate = plate.edges("|Z").fillet(4.0)
 
     # servo boss hole and tab holes; servo length along Y, shaft offset toward +Y
-    plate = plate.faces(">Z").workplane().center(S / 2, 0).hole(P.SERVO_BOSS_D + 0.6)
+    plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).center(S / 2, 0).hole(P.SERVO_BOSS_D + 0.6)
     cy = -P.SERVO_SHAFT_OFF
     tabs = [(S / 2 + dx, cy + dy)
             for dx in (-P.SERVO_TAB_HOLE_Y / 2, P.SERVO_TAB_HOLE_Y / 2)
             for dy in (-P.SERVO_TAB_HOLE_X / 2, P.SERVO_TAB_HOLE_X / 2)]
-    plate = plate.faces(">Z").workplane().pushPoints(tabs).slot2D(P.TAB_SLOT_LEN, P.SERVO_TAB_HOLE_D, angle=90).cutThruAll()
+    plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).pushPoints(tabs).slot2D(P.TAB_SLOT_LEN, P.SERVO_TAB_HOLE_D, angle=90).cutThruAll()
     # idler pin hole with a nut trap underneath
-    plate = plate.faces(">Z").workplane().center(-S / 2, 0).hole(P.M3_CLEAR)
+    plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).center(-S / 2, 0).hole(P.M3_CLEAR)
     trap = (cq.Workplane("XY").center(-S / 2, 0)
             .polygon(6, P.M3_NUT_AF / math.cos(math.radians(30))).extrude(P.M3_NUT_T)
             .translate((0, 0, -P.CARRIER_T)))
@@ -126,7 +126,7 @@ def carrier():
 
     # gussets from ear to plate are implicit (ear extends below plate top by CARRIER_T)
     # lightening slot in the plate between servo and idler regions, behind the gears
-    plate = plate.faces(">Z").workplane().center(0, -55).rect(24, 20).cutThruAll()
+    plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).center(0, -55).rect(24, 20).cutThruAll()
     return plate
 
 

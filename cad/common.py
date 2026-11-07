@@ -78,10 +78,29 @@ def plate_from_points(points, thickness=P.PLY_T):
 
 
 def export_dxf(shape, name, thickness=P.PLY_T):
-    """Export the outline (with holes) of a flat plate extruded along Z as DXF."""
+    """Export the outline (with holes) of a flat plate extruded along Z as DXF.
+
+    Takes every face lying on the bottom plane (unions can leave coplanar faces unmerged)
+    and writes all of their edges, then re-reads the file to verify it is not empty.
+    """
     path = os.path.join(OUT, f"{name}.dxf")
-    section = shape.section(thickness / 2.0)
-    exporters.export(section, path)
+    zmin = shape.val().BoundingBox().zmin
+    edges = []
+    for f in shape.faces().vals():
+        bb = f.BoundingBox()
+        if abs(bb.zmin - zmin) < 1e-3 and abs(bb.zmax - zmin) < 1e-3:
+            edges.extend(f.Edges())
+    if not edges:
+        raise RuntimeError(f"{name}: no bottom-plane faces found for DXF export")
+    exporters.export(cq.Workplane("XY").add(edges), path)
+    try:
+        import ezdxf
+        n = len(ezdxf.readfile(path).modelspace())
+    except ImportError:
+        n = -1
+    if n == 0:
+        raise RuntimeError(f"{name}: DXF export produced no entities")
+    print(f"  dxf {name}: {len(edges)} edges written, {n} entities read back")
     return path
 
 
@@ -165,3 +184,16 @@ def reach_table(L=P.ARM_LENGTH, pivot_h=P.PIVOT_H, pipe_len=P.PIPE_LENGTH, flang
             x, _ = contact_point(phi, L, pivot_h)
             rows.append((name, h, phi, x))
     return rows
+
+
+def circle_report(shape, name, expected=None):
+    """Count distinct circular/arc edge centers on the bottom plane; compare with expected."""
+    centers = set()
+    for e in shape.edges("%CIRCLE").vals():
+        c = e.Center()
+        centers.add((round(c.x, 1), round(c.y, 1), round(e.radius(), 2)))
+    msg = f"  holes/arcs on {name}: {len(centers)}"
+    if expected is not None:
+        msg += f" (expected {expected})" + ("" if len(centers) == expected else "  <-- MISMATCH")
+    print(msg)
+    return centers

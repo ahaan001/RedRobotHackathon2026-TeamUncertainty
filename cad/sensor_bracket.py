@@ -33,7 +33,7 @@ def build():
               .translate((0, -FLANGE_D, flange_bottom_z)))
     notch = cq.Workplane("XY").box(28.0, FLANGE_D - 6.0, FLANGE_T * 3).translate((0, -FLANGE_D + (FLANGE_D - 6.0) / 2 - 0.01, flange_bottom_z + FLANGE_T / 2))
     flange = flange.cut(notch)
-    flange = (flange.faces(">Z").workplane()
+    flange = (flange.faces(">Z").workplane(origin=(0, 0, 0))
               .pushPoints([(-HOLE_Y, -HOLE_X), (HOLE_Y, -HOLE_X)])
               .hole(P.M3_CLEAR))
 
@@ -44,10 +44,10 @@ def build():
     # Shelf ahead of the web; the QTR bolts to its underside, header pins poke up through the window
     shelf = (cq.Workplane("XY").box(SHELF_W, SHELF_D, SHELF_T, centered=(True, False, False))
              .translate((0, WEB_T, shelf_bottom_z)))
-    shelf = (shelf.faces(">Z").workplane()
+    shelf = (shelf.faces(">Z").workplane(origin=(0, 0, 0))
              .center(0, WEB_T + SHELF_D / 2)
              .rect(P.QTR_BOARD_L - 10.0, 5.0).cutThruAll())
-    shelf = (shelf.faces(">Z").workplane()
+    shelf = (shelf.faces(">Z").workplane(origin=(0, 0, 0))
              .center(0, WEB_T + SHELF_D / 2)
              .pushPoints([(-P.QTR_HOLE_SPACING / 2, 0), (P.QTR_HOLE_SPACING / 2, 0)])
              .slot2D(P.M2_CLEAR + 4.0, P.M2_CLEAR, angle=0).cutThruAll())

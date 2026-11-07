@@ -37,7 +37,7 @@ def base():
                     .rotate((0, 0, 0), (0, 0, 1), ang).translate((cx, cy, T / 2)))
             b = b.cut(slot)
     hx, hy = P.BASEPLATE_FRONT_HOLES_OUTER[1]
-    b = b.faces(">Z").workplane().pushPoints([(-hy, -hx), (hy, -hx)]).hole(P.M3_CLEAR)
+    b = b.faces(">Z").workplane(origin=(0, 0, 0)).pushPoints([(-hy, -hx), (hy, -hx)]).hole(P.M3_CLEAR)
     return b
 
 

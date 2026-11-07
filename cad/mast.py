@@ -44,23 +44,23 @@ def side_plate(left: bool):
     s = cq.Workplane("XY").box(BRACE_SLOT_H, SLOT_W, T * 3).translate((PLATE_W / 2, PLATE_H - 8.0, T / 2))
     plate = plate.cut(s)
 
-    wp = plate.faces(">Z").workplane()
+    wp = plate.faces(">Z").workplane(origin=(0, 0, 0))
     for h in P.PIVOT_H_OPTIONS:
         py = pivot_y(h)
         if left:
             # boss clearance + four servo tab holes (servo length vertical, shaft above body center)
-            plate = plate.faces(">Z").workplane().center(MAST_PIVOT_X, py).hole(P.SERVO_BOSS_D + 0.6)
+            plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).center(MAST_PIVOT_X, py).hole(P.SERVO_BOSS_D + 0.6)
             cy = py - P.SERVO_SHAFT_OFF
             pts4 = [(MAST_PIVOT_X + dx, cy + dy)
                     for dx in (-P.SERVO_TAB_HOLE_Y / 2, P.SERVO_TAB_HOLE_Y / 2)
                     for dy in (-P.SERVO_TAB_HOLE_X / 2, P.SERVO_TAB_HOLE_X / 2)]
-            plate = plate.faces(">Z").workplane().pushPoints(pts4).slot2D(P.TAB_SLOT_LEN, P.SERVO_TAB_HOLE_D, angle=90).cutThruAll()
+            plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).pushPoints(pts4).slot2D(P.TAB_SLOT_LEN, P.SERVO_TAB_HOLE_D, angle=90).cutThruAll()
         else:
-            plate = plate.faces(">Z").workplane().center(MAST_PIVOT_X, py).hole(P.M3_CLEAR)
+            plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).center(MAST_PIVOT_X, py).hole(P.M3_CLEAR)
     # lightening holes between pivots
     for i in range(len(P.PIVOT_H_OPTIONS) - 1):
         ymid = (pivot_y(P.PIVOT_H_OPTIONS[i]) + pivot_y(P.PIVOT_H_OPTIONS[i + 1])) / 2
-        plate = plate.faces(">Z").workplane().center(MAST_PIVOT_X - 14, ymid).hole(14.0)
+        plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).center(MAST_PIVOT_X - 14, ymid).hole(14.0)
     return plate
 
 
@@ -84,7 +84,7 @@ def base_plate():
     for cx, cy in P.MAST_HOLES_FRONT:
         pts.append((P.MAST_CENTER_FRONT_X - cx, cy))
     pts = [(x, y) for (x, y) in pts if abs(x) < L / 2 - 4 and abs(y) < W / 2 - 4]
-    plate = plate.faces(">Z").workplane().pushPoints(pts).hole(P.M3_CLEAR)
+    plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).pushPoints(pts).hole(P.M3_CLEAR)
     return plate
 
 
@@ -100,7 +100,7 @@ def back_brace():
             tab = cq.Workplane("XY").box(T, BRACE_SLOT_H - 2 * P.KERF, T, centered=(True, True, False)).translate((sx * (W / 2 + T / 2), yy, 0))
             body = body.union(tab)
     # lightening window
-    body = body.faces(">Z").workplane().rect(W - 16, H - 40).cutThruAll()
+    body = body.faces(">Z").workplane(origin=(0, 0, 0)).rect(W - 16, H - 40).cutThruAll()
     return body
 
 
@@ -123,7 +123,7 @@ def pivot_bushing():
     """Printed bushing: 8 mm OD into the arm plate's 8 mm hole, 3.4 mm bore for the M3 pivot bolt."""
     b = cq.Workplane("XY").circle(P.SERVO_HORN_HUB_D / 2 - 0.1).extrude(T + 0.5)
     b = b.union(cq.Workplane("XY").circle(7.0).extrude(2.0).translate((0, 0, T + 0.5)))
-    return b.faces(">Z").workplane().hole(P.M3_CLEAR)
+    return b.faces(">Z").workplane(origin=(0, 0, 0)).hole(P.M3_CLEAR)
 
 
 if __name__ == "__main__":

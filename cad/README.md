@@ -4,6 +4,7 @@ Parametric CAD in CadQuery. `params.py` holds every dimension; the part scripts 
 
     pip install cadquery trimesh matplotlib
     python build_all.py        # regenerates out/*.stl *.step *.dxf and out/contact_sheet.png
+    python verify_parts.py     # independent hole-position checks; must print ALL CHECKS PASSED
     python assembly_check.py   # kinematic side views at pickup, placement and stow
 
 Fabrication list and quantities: `BOM.md`. Order of assembly and pre-flight: `ASSEMBLY.md`.

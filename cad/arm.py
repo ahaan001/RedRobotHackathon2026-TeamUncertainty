@@ -25,29 +25,29 @@ def arm_plate():
     for L in (P.ARM_LENGTH_ALT, P.ARM_LENGTH):
         plate = plate.union(cq.Workplane("XY").center(L, 0).circle(2 * ANGLE_HOLE_R + 6.0).extrude(T))
 
-    wp = plate.faces(">Z").workplane()
+    wp = plate.faces(">Z").workplane(origin=(0, 0, 0))
     # pivot: hub hole + horn screw holes
     plate = wp.center(0, 0).hole(P.SERVO_HORN_HUB_D)
     for pcd, angs in ((14.0, (0, 90, 180, 270)), (20.0, (45, 135, 225, 315))):
         pts = [(pcd / 2 * math.cos(math.radians(a)), pcd / 2 * math.sin(math.radians(a))) for a in angs]
-        plate = plate.faces(">Z").workplane().pushPoints(pts).hole(P.SERVO_HORN_HOLE_D)
+        plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).pushPoints(pts).hole(P.SERVO_HORN_HOLE_D)
 
     # gripper mount at both lengths: pivot hole + angle hole in the anti-finger direction
     ang = math.radians(180.0 + P.GRIPPER_MOUNT_ANGLE_DEG)   # direction from gripper pivot toward the ear's angle hole
     for L in (P.ARM_LENGTH_ALT, P.ARM_LENGTH):
-        plate = plate.faces(">Z").workplane().center(L, 0).hole(P.M3_CLEAR)
+        plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).center(L, 0).hole(P.M3_CLEAR)
         ax = L + ANGLE_HOLE_R * math.cos(ang)
         ay = ANGLE_HOLE_R * math.sin(ang)
-        plate = plate.faces(">Z").workplane().center(ax, ay).hole(P.M3_CLEAR)
+        plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).center(ax, ay).hole(P.M3_CLEAR)
 
     # spacer bolt holes
     for x in (60.0, 140.0):
-        plate = plate.faces(">Z").workplane().center(x, 0).hole(P.M3_CLEAR)
+        plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).center(x, 0).hole(P.M3_CLEAR)
     # counterbalance hook hole on the rear extension
-    plate = plate.faces(">Z").workplane().center(X0 + 8.0, 0).hole(4.0)
+    plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).center(X0 + 8.0, 0).hole(4.0)
     # lightening holes
     for x in (30.0, 90.0, 110.0, 165.0):
-        plate = plate.faces(">Z").workplane().center(x, 0).hole(12.0)
+        plate = plate.faces(">Z").workplane(origin=(0, 0, 0)).center(x, 0).hole(12.0)
     return plate
 
 
@@ -56,7 +56,7 @@ def spacer():
     M3 x 12 screws (one per side) clamp the plates. Print 2."""
     L = P.ARM_PLATE_GAP
     s = cq.Workplane("XY").box(12.0, 12.0, L, centered=(True, True, False))
-    s = s.faces(">Z").workplane().hole(P.M3_CLEAR)
+    s = s.faces(">Z").workplane(origin=(0, 0, 0)).hole(P.M3_CLEAR)
     for z in (0.0, L - P.M3_NUT_T):
         trap = cq.Workplane("XY").polygon(6, P.M3_NUT_AF / math.cos(math.radians(30))).extrude(P.M3_NUT_T).translate((0, 0, z))
         s = s.cut(trap)

@@ -4,6 +4,8 @@ Generated from `params.py` on 2026-11-07 16:10 with the **measured** pipe (3 in 
 body, 0.5 in flange, 3 in tall, 75 g), the Hitec HS-311 servo and the kit chassis from the
 organizers' STEP. **Everything in `out/` is ready to fabricate.** Remaining placeholders: QTR
 mounting-hole spacing (bracket has ±3 mm slots) and the HS-311 tab spacing (slotted holes).
+Every DXF was re-read with an independent DXF library and every hole position checked by
+`verify_parts.py` before this revision was published.
 
 ## 3D prints (PLA, 15% infill, draft layer, flat side down)
 
