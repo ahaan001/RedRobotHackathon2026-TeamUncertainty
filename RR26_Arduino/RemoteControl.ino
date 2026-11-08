@@ -2,8 +2,11 @@
 #include <Arduino.h>
 #include "RedRobot.h"
 
+// Function defined in RR26_Arduino.ino
+void BeginAutonomousRun();
+
 // =====================================
-// REMOTE CONTROL CONFIGURATION
+// BLUETOOTH SPEED SETTINGS
 // =====================================
 
 const int REMOTE_MAX_SPEED = 60;
@@ -15,12 +18,17 @@ bool useTankDrive = false;
 int tankLeft = 0;
 int tankRight = 0;
 
+bool blueButtons[4] = {
+    false, false, false, false
+};
+
+bool redButtons[5] = {
+    false, false, false, false, false
+};
+
 // =====================================
 // MOTOR CONTROL
 // =====================================
-
-// Takes physical left/right wheel speeds.
-// Corrects Motor 0's reversed direction.
 
 void remoteDrive(int left, int right) {
 
@@ -36,15 +44,62 @@ void remoteDrive(int left, int right) {
         right, -REMOTE_MAX_SPEED, REMOTE_MAX_SPEED
     );
 
-    // LEFT: Motor 0
+    // Confirmed hardware directions
     RedRobot::WriteDCMotor(0, -left);
-
-    // RIGHT: Motor 2
     RedRobot::WriteDCMotor(2, right);
 }
 
-// Convert joystick input -100..100
-// into our preferred motor speed range.
+void resetRemoteInputs() {
+
+    for (int i = 0; i < 4; i++) {
+        blueButtons[i] = false;
+    }
+
+    for (int i = 0; i < 5; i++) {
+        redButtons[i] = false;
+    }
+
+    tankLeft = 0;
+    tankRight = 0;
+}
+
+// =====================================
+// START AUTONOMOUS
+// =====================================
+
+void startAutonomousFromButton() {
+
+    if (!RedRobot::IsRemoteControlled()) {
+        return;
+    }
+
+    // Stop manual commands first
+    remoteDrive(0, 0);
+
+    resetRemoteInputs();
+
+    // Start 20-second autonomous run
+    BeginAutonomousRun();
+}
+
+// =====================================
+// EMERGENCY TAKEOVER / MANUAL MODE
+// =====================================
+
+void enableRemoteControl() {
+
+    RedRobot::StartRemoteControl();
+
+    remoteDrive(0, 0);
+
+    resetRemoteInputs();
+
+    Serial.println("REMOTE CONTROL ACTIVE");
+}
+
+// =====================================
+// JOYSTICK SPEED CONVERSION
+// =====================================
 
 int joystickSpeed(int value) {
 
@@ -59,45 +114,40 @@ int joystickSpeed(int value) {
     );
 }
 
-// Common D-pad driving function
+// =====================================
+// D-PAD DRIVING
+// =====================================
 
 void driveDPad(
-    bool up, bool down,
-    bool left, bool right
+    bool up,
+    bool down,
+    bool left,
+    bool right
 ) {
 
     int forward = 0;
     int turn = 0;
 
-    if (up) forward += DPAD_FORWARD_SPEED;
-    if (down) forward -= DPAD_FORWARD_SPEED;
+    if (up) {
+        forward += DPAD_FORWARD_SPEED;
+    }
 
-    if (left) turn -= DPAD_TURN_SPEED;
-    if (right) turn += DPAD_TURN_SPEED;
+    if (down) {
+        forward -= DPAD_FORWARD_SPEED;
+    }
+
+    if (left) {
+        turn -= DPAD_TURN_SPEED;
+    }
+
+    if (right) {
+        turn += DPAD_TURN_SPEED;
+    }
 
     remoteDrive(
         forward + turn,
         forward - turn
     );
-}
-
-// Switch from autonomous to Bluetooth
-
-void enableRemoteControl() {
-
-    if (RedRobot::IsRemoteControlled()) {
-        return;
-    }
-
-    RedRobot::StartRemoteControl();
-
-    // Stop autonomous motor movement
-    remoteDrive(0, 0);
-
-    tankLeft = 0;
-    tankRight = 0;
-
-    Serial.println("BLUETOOTH CONTROL ACTIVE");
 }
 
 // =====================================
@@ -106,7 +156,7 @@ void enableRemoteControl() {
 
 namespace Bluefruit {
 
-    // Button 1 exits autonomous mode
+    // BUTTON 1: Emergency takeover
     void Button1_Pressed(bool pressed) {
 
         if (pressed) {
@@ -114,37 +164,7 @@ namespace Bluefruit {
         }
     }
 
-    // D-pad controls driving
-    void DPad_Pressed(
-        button_t button,
-        bool pressed
-    ) {
-
-        if (!RedRobot::IsRemoteControlled()) {
-            return;
-        }
-
-        static bool buttons[4] = {
-            false, false, false, false
-        };
-
-        if ((int)button < 0 || (int)button > 3) {
-            return;
-        }
-
-        buttons[button] = pressed;
-
-        driveDPad(
-            buttons[UP],
-            buttons[DOWN],
-            buttons[LEFT],
-            buttons[RIGHT]
-        );
-    }
-
-    // Button 2 controls Servo 0
-    // Press: 45 degrees
-    // Release: 0 degrees
+    // BUTTON 2: Servo 0
     void Button2_Pressed(bool pressed) {
 
         if (!RedRobot::IsRemoteControlled()) {
@@ -156,20 +176,51 @@ namespace Bluefruit {
         );
     }
 
+    // BUTTON 3: START AUTONOMOUS
     void Button3_Pressed(bool pressed) {
+
+        if (pressed) {
+            startAutonomousFromButton();
+        }
     }
 
+    // BUTTON 4: Unused
     void Button4_Pressed(bool pressed) {
+    }
+
+    // D-PAD: Manual driving
+    void DPad_Pressed(
+        button_t button,
+        bool pressed
+    ) {
+
+        if (!RedRobot::IsRemoteControlled()) {
+            return;
+        }
+
+        if ((int)button < 0 ||
+            (int)button > 3) {
+            return;
+        }
+
+        blueButtons[button] = pressed;
+
+        driveDPad(
+            blueButtons[UP],
+            blueButtons[DOWN],
+            blueButtons[LEFT],
+            blueButtons[RIGHT]
+        );
     }
 }
 
 // =====================================
-// REDPAD CONTROLLER
+// REDPAD
 // =====================================
 
 namespace RR_Controller {
 
-    // Button X exits autonomous mode
+    // X: Emergency takeover
     void ButtonX_Pressed(bool pressed) {
 
         if (pressed) {
@@ -177,7 +228,15 @@ namespace RR_Controller {
         }
     }
 
-    // Button Y toggles arcade/tank drive
+    // B: START AUTONOMOUS
+    void ButtonB_Pressed(bool pressed) {
+
+        if (pressed) {
+            startAutonomousFromButton();
+        }
+    }
+
+    // Y: Arcade/tank toggle
     void ButtonY_Pressed(bool pressed) {
 
         if (!RedRobot::IsRemoteControlled()) {
@@ -188,14 +247,13 @@ namespace RR_Controller {
 
             useTankDrive = !useTankDrive;
 
-            tankLeft = 0;
-            tankRight = 0;
+            resetRemoteInputs();
 
             remoteDrive(0, 0);
         }
     }
 
-    // Button A controls Servo 0
+    // A: Servo 0
     void ButtonA_Pressed(bool pressed) {
 
         if (!RedRobot::IsRemoteControlled()) {
@@ -207,10 +265,7 @@ namespace RR_Controller {
         );
     }
 
-    void ButtonB_Pressed(bool pressed) {
-    }
-
-    // RedPad D-pad
+    // D-PAD: Manual driving
     void DPad_Pressed(
         button_t button,
         bool pressed
@@ -220,27 +275,22 @@ namespace RR_Controller {
             return;
         }
 
-        static bool buttons[5] = {
-            false, false, false, false, false
-        };
-
-        if ((int)button < 0 || (int)button > 4) {
+        if ((int)button < 0 ||
+            (int)button > 4) {
             return;
         }
 
-        buttons[button] = pressed;
+        redButtons[button] = pressed;
 
         driveDPad(
-            buttons[UP],
-            buttons[DOWN],
-            buttons[LEFT],
-            buttons[RIGHT]
+            redButtons[UP],
+            redButtons[DOWN],
+            redButtons[LEFT],
+            redButtons[RIGHT]
         );
     }
 
-    // Left joystick:
-    // Arcade = forward and turning
-    // Tank = left wheel only
+    // Left joystick
     void Joystick1(int8_t x, int8_t y) {
 
         if (!RedRobot::IsRemoteControlled()) {
@@ -268,8 +318,7 @@ namespace RR_Controller {
         }
     }
 
-    // Right joystick:
-    // Used in tank drive mode
+    // Right joystick for tank mode
     void Joystick2(int8_t x, int8_t y) {
 
         if (!RedRobot::IsRemoteControlled()) {
