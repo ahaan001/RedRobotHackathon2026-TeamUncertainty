@@ -1,96 +1,309 @@
-/**
- * @brief Red Robot 2026 main code!
- * 
- * Read the comments below to figure out how to get started!
- */
 
-// Libraries with driver code (don't remove these!)
-#include <Arduino.h>                // make sure this is first
+#include <Arduino.h>
 #include "RedRobot.h"
 
-// Declare some global variables
-bool started; // boolean (true or false) to keep track of if we should start
-int counter;  // integer to hold a count value
+// =====================================
+// MOTOR CONFIGURATION
+// =====================================
 
-// This function runs ONCE, when the microcontroller boots up
-void setup() {
-    // Initialize all components on the robot before doing any work
-  RedRobot::InitRedRobot();         // call this first
-  RedRobot::InitDCMotors();
-  RedRobot::InitServo();
-  RedRobot::InitLineSensors();
-  RedRobot::InitAuton();            // call this to activate the AutonomousLoop
+const int LEFT_MOTOR = 0;
+const int RIGHT_MOTOR = 2;
 
-  // Initialize our variables
-  started = false;
-  counter = 0;
+// Confirmed directions
+const int LEFT_FORWARD = -1;
+const int RIGHT_FORWARD = 1;
+
+// =====================================
+// LINE FOLLOWING SETTINGS
+// =====================================
+
+const int BASE_SPEED = 35;
+const int MIN_SPEED = 12;
+const int MAX_SPEED = 55;
+
+const float KP = 3.0;
+
+const int GAP_SPEED = 25;
+
+// =====================================
+// LINE SENSOR CONFIGURATION
+// =====================================
+
+uint16_t sensors[6];
+
+// Physical left-to-right order
+const int ORDER[6] = {
+    0, 3, 4, 5, 1, 2
+};
+
+// Positions including missing sensors
+const float POSITION[6] = {
+    -3.5, -2.5, 0.5, 1.5, 2.5, 3.5
+};
+
+// White surface calibration
+const int WHITE[6] = {
+    1148, 881, 738, 1022, 917, 911
+};
+
+const int BLACK_THRESHOLD = 2300;
+const int MIN_BLACK_SENSORS = 1;
+
+const float CENTER = 1.10;
+
+// =====================================
+// LATTICE CROSSING SETTINGS
+// =====================================
+
+// How long to continue straight
+// when the black line disappears
+const unsigned long GAP_GRACE_MS = 150;
+
+// =====================================
+// TIMING SETTINGS
+// =====================================
+
+// Five-second autonomous test
+const unsigned long AUTO_TIME = 20000;
+
+// Delay before autonomous starts
+const unsigned long START_DELAY = 3000;
+
+unsigned long startTime = 0;
+unsigned long gapStart = 0;
+unsigned long allBlackSince = 0;
+
+bool hasSeenLine = false;
+bool finished = false;
+
+// =====================================
+// MOTOR CONTROL
+// =====================================
+
+void drive(int leftSpeed, int rightSpeed) {
+
+    RedRobot::WriteDCMotor(
+        LEFT_MOTOR,
+        LEFT_FORWARD * leftSpeed
+    );
+
+    RedRobot::WriteDCMotor(
+        RIGHT_MOTOR,
+        RIGHT_FORWARD * rightSpeed
+    );
 }
 
-// This function runs over and over (in a loop) when you are in autonomous mode.
-// As an example, this code moves out of the starting box at start, and 
-// Look at RedRobot.h to see the robot interface: what functions you can call and how.
+void stopMotors() {
+    drive(0, 0);
+}
+
+// =====================================
+// SETUP
+// =====================================
+
+void setup() {
+
+    Serial.begin(115200);
+
+    // Initialize Bluetooth
+    RedRobot::InitRedRobot();
+
+    // Initialize motors and servo
+    RedRobot::InitDCMotors();
+    RedRobot::InitServo();
+
+    // Initialize line sensors
+    RedRobot::InitLineSensors();
+
+    // Start autonomous mode
+    RedRobot::InitAuton();
+
+    stopMotors();
+
+    delay(START_DELAY);
+
+    startTime = millis();
+}
+
+// =====================================
+// AUTONOMOUS LINE FOLLOWING
+// =====================================
+
 void AutonomousLoop() {
 
-    if (!started) { // e.g. get out of the starting box
-        started = true;
-
-        // move forward - set motors 2 and 3 to speed 30
-        RedRobot::WriteDCMotor(2, 30);
-        RedRobot::WriteDCMotor(3, 30);
-
-        // wait 1000 milliseconds = 1 second
-        delay(1000);
-
-        // turn right - set motor 2 to speed 30 and motor 3 to -30
-        RedRobot::WriteDCMotor(2, 30);
-        RedRobot::WriteDCMotor(3, -30);
-
-        delay(500); // half a second
-
-        // stop the motors
-        RedRobot::WriteDCMotor(2, 0);
-        RedRobot::WriteDCMotor(3, 0);
+    // Bluetooth takeover
+    if (RedRobot::IsRemoteControlled()) {
+        return;
     }
-    
-    // repeatedly move the servo and get in scoring position
-    // remember that the below code will run repeatedly since we are in
-    // the AutonomousLoop!
 
-    // set all servos to angle 0
-    RedRobot::SetServo(0, 0);
-    RedRobot::SetServo(1, 0);
-    RedRobot::SetServo(2, 0);
-    RedRobot::SetServo(3, 0);
+    // Stay stopped after finishing
+    if (finished) {
+        delay(20);
+        return;
+    }
 
-    // move forward at speed 50
-    RedRobot::WriteDCMotor(2, 50);
-    RedRobot::WriteDCMotor(3, 50);
+    unsigned long now = millis();
 
-    delay(1000);
+    // =================================
+    // AUTONOMOUS TIME LIMIT
+    // =================================
 
-    // stop the motors
-    RedRobot::WriteDCMotor(2, 0);
-    RedRobot::WriteDCMotor(3, 0);
+    if (now - startTime >= AUTO_TIME) {
 
-    // set the motors to different angles
-    RedRobot::SetServo(0, 90);
-    RedRobot::SetServo(1, 180);
-    RedRobot::SetServo(2, 90);
-    RedRobot::SetServo(3, 180);
+        stopMotors();
+        finished = true;
+        return;
+    }
 
-    delay(500);
+    // =================================
+    // READ SENSORS
+    // =================================
 
-    // move backward
-    RedRobot::WriteDCMotor(2, -50);
-    RedRobot::WriteDCMotor(3, -50);
+    RedRobot::ReadLineSensor(sensors);
 
-    delay(1000);
-    
-    // Print to the serial console to debug!
-    Serial.print("[AUTO] Running ");
-    Serial.print(counter);
-    Serial.println();
+    // Check Bluetooth takeover again
+    if (RedRobot::IsRemoteControlled()) {
+        return;
+    }
 
-    // increment the counter
-    counter = counter + 1;
+    float weightedSum = 0;
+    float totalWeight = 0;
+
+    int blackCount = 0;
+    int saturatedCount = 0;
+
+    // =================================
+    // FIND BLACK LINE
+    // =================================
+
+    for (int i = 0; i < 6; i++) {
+
+        int lf = ORDER[i];
+        int reading = sensors[lf];
+
+        if (reading >= 9000) {
+            saturatedCount++;
+        }
+
+        if (reading >= BLACK_THRESHOLD) {
+
+            blackCount++;
+
+            float weight = constrain(
+                (float)(reading - WHITE[lf]),
+                0.0f,
+                9000.0f
+            );
+
+            weightedSum +=
+                POSITION[i] * weight;
+
+            totalWeight += weight;
+        }
+    }
+
+    now = millis();
+
+    // =================================
+    // NEW: CROSS A SMALL GAP
+    // =================================
+
+    if (blackCount < MIN_BLACK_SENSORS) {
+
+        // Never start moving if the
+        // robot has not detected a line
+        if (!hasSeenLine) {
+
+            stopMotors();
+            finished = true;
+            return;
+        }
+
+        // First reading with no line
+        if (gapStart == 0) {
+            gapStart = now;
+        }
+
+        // Continue straight briefly
+        if (now - gapStart < GAP_GRACE_MS) {
+
+            drive(GAP_SPEED, GAP_SPEED);
+            return;
+        }
+
+        // No line after grace period:
+        // stop permanently
+        stopMotors();
+        finished = true;
+        return;
+    }
+
+    // =================================
+    // LINE DETECTED AGAIN
+    // =================================
+
+    // Reset the gap timer so another
+    // short gap can be crossed later
+    gapStart = 0;
+
+    hasSeenLine = true;
+
+    // =================================
+    // ALL SENSORS BLACK
+    // =================================
+
+    if (saturatedCount == 6) {
+
+        if (allBlackSince == 0) {
+            allBlackSince = now;
+        }
+
+        if (now - allBlackSince < 400) {
+            drive(18, 18);
+        }
+        else {
+            stopMotors();
+            finished = true;
+        }
+
+        return;
+    }
+
+    allBlackSince = 0;
+
+    // =================================
+    // PROPORTIONAL LINE FOLLOWING
+    // =================================
+
+    if (totalWeight > 0) {
+
+        float linePosition =
+            weightedSum / totalWeight;
+
+        float error =
+            linePosition - CENTER;
+
+        float correction = KP * error;
+
+        int leftSpeed = constrain(
+            (int)(BASE_SPEED + correction),
+            MIN_SPEED,
+            MAX_SPEED
+        );
+
+        int rightSpeed = constrain(
+            (int)(BASE_SPEED - correction),
+            MIN_SPEED,
+            MAX_SPEED
+        );
+
+        drive(leftSpeed, rightSpeed);
+    }
+    else {
+
+        stopMotors();
+        finished = true;
+    }
+
+    delay(5);
 }
