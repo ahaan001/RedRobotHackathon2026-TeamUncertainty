@@ -17,11 +17,13 @@ const int RIGHT_FORWARD = 1;
 // LINE FOLLOWING SETTINGS
 // =====================================
 
-const int BASE_SPEED = 25;
-const int MIN_SPEED = 15;
-const int MAX_SPEED = 35;
+const int BASE_SPEED = 35;
+const int MIN_SPEED = 12;
+const int MAX_SPEED = 55;
 
 const float KP = 3.0;
+
+const int GAP_SPEED = 25;
 
 // =====================================
 // LINE SENSOR CONFIGURATION
@@ -56,9 +58,6 @@ const float CENTER = 1.10;
 // How long to continue straight
 // when the black line disappears
 const unsigned long GAP_GRACE_MS = 150;
-
-// Slower speed through the gap
-const int GAP_SPEED = 20;
 
 // =====================================
 // TIMING SETTINGS
